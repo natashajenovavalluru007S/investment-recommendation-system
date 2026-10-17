@@ -1,7 +1,8 @@
 import pandas as pd
 import streamlit as st
-from pathlib import Path
+import plotly.express as px
 import plotly.graph_objects as go
+from pathlib import Path
 
 st.set_page_config(page_title="Investment Recommendation System", page_icon="📈", layout="wide")
 
@@ -21,7 +22,7 @@ recs, prices, returns = load_data()
 st.title("📈 Investment Recommendation System")
 st.caption(f"{len(recs)} Nifty 50 stocks · data from {prices.index[0]:%d %b %Y} to {prices.index[-1]:%d %b %Y}")
 
-page = st.sidebar.radio("Go to", ["Overview", "Stock Explorer"])
+page = st.sidebar.radio("Go to", ["Overview", "Stock Explorer", "Risk vs Return"])
 
 if page == "Overview":
     counts = recs["recommendation"].value_counts()
@@ -34,6 +35,7 @@ if page == "Overview":
     st.subheader("Recommendations")
     table = recs[["sector", "total_score", "recommendation", "risk_level", "trend", "reason"]]
     st.dataframe(table.sort_values("total_score", ascending=False))
+
 elif page == "Stock Explorer":
     symbol = st.selectbox("Choose a stock", recs.index)
     row = recs.loc[symbol]
@@ -58,5 +60,22 @@ elif page == "Stock Explorer":
     fig.add_trace(go.Scatter(x=s.index, y=s.rolling(200).mean(), name="200-day average"))
     fig.update_layout(title=f"{symbol} price", height=450)
     st.plotly_chart(fig)
+
+elif page == "Risk vs Return":
+    st.subheader("Risk vs return")
+    color_by = st.radio("Colour by", ["recommendation", "risk_level"], horizontal=True)
+    fig = px.scatter(
+        recs.reset_index(names="stock"),
+        x="risk_score", y="cagr_%", color=color_by, text="stock",
+        hover_name="stock", hover_data=["sector", "sharpe", "total_score"],
+        color_discrete_map={"Buy": "green", "Hold": "orange", "Sell": "red",
+                            "Low": "green", "Medium": "orange", "High": "red"},
+        labels={"risk_score": "Risk score (0 = safest)", "cagr_%": "Annual return (CAGR %)"},
+    )
+    fig.update_traces(textposition="top center", marker_size=10)
+    fig.add_hline(y=0, line_color="grey")
+    fig.update_layout(height=600)
+    st.plotly_chart(fig)
+
 st.divider()
 st.caption("For education only. Not financial advice.")
